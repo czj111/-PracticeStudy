@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>indexedDB</title>
+    <style>
+        ul,li {
+            padding: 0;
+            margin: 0;
+            list-style: none;
+        }
+        .show{
+           width: 400px; 
+           border: 1px solid #000;
+           margin: 10px 0;
+           /* position: relative; */
+
+        }
+        .show_content li{
+            overflow: hidden;
+            border-bottom: 1px solid #000;
+            text-align: center;
+            cursor: pointer;
+        }
+        .show_content span{
+            display: inline-block;
+            width: 100px;
+            box-sizing: border-box;
+            float:left;
+            height: 30px;
+            line-height: 30px;
+        }
+        .show_content button{
+            width: 100px;
+            box-sizing: border-box;
+            height: 30px;
+            line-height: 30px;
+        }
+        .show_content .show_title{
+            cursor: default;
+        }
+        .updata .updata_mainId{
+            display: inline-block;
+
+        }
+        .information{
+            width: 150px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="add">
+        <span>编号：</span><input class="mainId information">
+        <span>姓名：</span><input class="name information">
+        <span>年龄：</span><input class="age information">
+        <button class="add_btn">提交</button>
+    </div>
+    <div class="updata">
+        <span>编号：</span><span class="updata_mainId information"></span>
+        <span>姓名：</span><input class="information">
+        <span>年龄：</span><input class="information">
+        <button class="updata_btn">修改</button>
+    </div>
+    <div class="show">
+        <ul class="show_content">
+            <li class="show_title">
+                <span>编号</span>
+                <span>姓名</span>
+                <span>年龄</span>
+                <span>操作</span>
+            </li>
+        </ul>
+    </div>
+    
+</body>
+<script>
+    var db;
+    let table=["students"];
+    function openDB(name,version,objectStNames){
+        const request=window.indexedDB.open(name,version);
+        request.onerror=function(e){
+            console.log("版本太低了");
+        }
+        request.onsuccess=function(){
+            db=this.result;
+            console.log("打开数据库成功！");
+        }
+        request.onupgradeneeded=function(){
+            db=this.result;
+            objectStNames.forEach((ele)=>{
+                if(!db.objectStoreNames.contains(ele))
+                {
+                    db.createObjectStore(ele,{keyPath:"id"});
+                }
+            });
+        }
+    }
+    window.onload=function(){
+        openDB("aaa",10,table);
+    }
+     // 存储数据
+     function saveData(ojectStore,data){
+         console.log(ojectStore);
+         ojectStore.add(data);
+    }
+    //返回相应名字的表
+    function findObjectStore(ojectStores,name){
+        return ojectStores.objectStore(name);
+    }
+    //返回可读写的
+    function configObjectStoreWR(objectStNames){
+        let objectStWR=db.transaction(objectStNames,"readwrite");
+        return objectStWR;
+    }
+    //通过游标查找所有数据
+    function fetchStoreByCursor(objectStore){
+        let arr=[];
+        return new Promise(function(resolve,reject){
+            let cursorRequest=objectStore.openCursor();
+            cursorRequest.onsuccess=function(e){
+            let cursor=e.target.result;
+            // console.log("cursor"+cursor);
+            if(cursor){
+                let value=cursor.value;
+                arr.push(value);
+                cursor.continue();
+            }
+            if(!cursor)
+                resolve(arr);
+        }
+
+        });
+    }
+    //通过key值删除数据
+    function deleteDataByKey(objectStore,key){
+        console.log(key);
+        let deleteRequest=objectStore.delete(key);
+        return new Promise((resolve,reject)=>{
+            deleteRequest.onsuccess=function(){
+                resolve("删除成功！");
+            }
+            deleteRequest.onerror=function(){
+                reject("删除失败！");
+            }
+        });
+
+    }
+   //修改数据,会自动替换键值相同的记录，达到更新目的，没有相同的则添加。
+   function putDataByKey(objectStore,student){
+        objectStore.put(key);
+   }
+    class Student{
+        constructor(id,name,age){
+            this.id=id;
+            this.name=name;
+            this.age=age;
+        }
+    }
+    class Start{
+        static init(){
+            let self=this;
+            this.add_btn=document.querySelector(".add_btn");
+            //监听添加按钮事件
+            this.add_btn.addEventListener("click",function(e){
+                // if(!self.objectStore)
+                // {
+                //     Start.getObjectStore(); 
+                // } 
+                let id=document.querySelector(".mainId").value;
+                let name=document.querySelector(".name").value;
+                let age=document.querySelector(".age").value;
+                let student=new Student(id,name,age);
+                Start.addData(student);
+                Start.remove();
+                Start.showByCursor();
+            });
+            setTimeout(function(){
+                Start.showByCursor();
+            },1000);
+            //监听删除按钮事件并选择修改
+            this.showContent.addEventListener("click",function(e){
+                if(e.target.nodeName==="BUTTON")
+                {
+                    // let a=document.querySelector("span");
+                    // a.parentNode;
+                    let parent=e.target.parentNode;
+                    let id=parent.querySelector("span");
+                   Start.deleteByKey(id);
+                }
+                else{
+                    if(e.target.parentNode!==Start.showtitle)
+                    {
+                        Start.getData(e.target.parentNode);
+                    }
+                    // Start.updataDataByKey(e.target.parentNode);
+                }
+            });
+
+        }
+        //设置事务并获取表
+        static getObjectStore(){
+            this.objectStWR=configObjectStoreWR(table);
+            this.objectStore=findObjectStore(this.objectStWR,"students");
+        }
+        //添加数据
+        static addData(student){
+            Start.getObjectStore();
+            saveData(this.objectStore,student);
+        }
+        //通过游标查询所有数据
+        static showByCursor(){
+            Start.getObjectStore();
+            let promise=fetchStoreByCursor(this.objectStore);
+            promise.then((value)=>{
+                Start.showData(value);
+            },(reject)=>{
+                console.log("查询所有数据出错了！："+reject);
+            });
+        } 
+        //显示数据
+        static showData(arr){
+            // console.log(arr);
+            // console.log(arr.length);
+            let keys=Object.keys(arr[0]);
+            let length=keys.length;
+            for(let j=0;j<arr.length;j++)
+            {
+                let li=document.createElement("li");
+                for(let i=0;i<length;i++)
+                {
+                    let span=document.createElement("span");
+                    span.innerText=arr[j][keys[i]];
+                    li.appendChild(span);
+                }
+                let btn=document.createElement("button");
+                btn.innerText="删除";
+                li.appendChild(btn);
+                let spans=li.querySelectorAll("span");
+                this.showContent.appendChild(li);
+
+            }
+        }
+        //删除掉页面已经显示出来的所有节点
+        static remove(){
+            let lis=this.showContent.querySelectorAll("li"); 
+            for(let i=1;i<lis.length;i++)
+            {
+                this.showContent.removeChild(lis[i]);
+            }
+        }
+        //删除数据
+        static deleteByKey(key){
+            Start.getObjectStore();
+            let keyValue=key.innerText;
+            console.log(key.innerText);
+            deleteDataByKey(this.objectStore,keyValue).then(
+                (value)=>{
+                    let parent=key.parentNode.parentNode;
+                    console.log(parent);
+                    parent.removeChild(key.parentNode);
+                },(reason)=>{
+                    console.log(reason);
+                }
+            );
+
+        }
+        //更新数据
+        static updataDataByKey(key){
+            Start.getObjectStore();
+            let student=Start.getData(key);
+            console.log(student);
+            putDataByKey(this.objectStore,student);
+        }
+        //获取要修改的数据
+        static getData(key){
+            let spans=key.querySelectorAll("span");
+            let id=spans[0].innerText;
+            let name=spans[1].innerText;
+            let age=spans[2].innerText;
+
+            let student=new Student(id,name,age);
+        }
+    }
+    Start.showContent=document.querySelector(".show_content");
+    Start.showtitle=Start.showContent.querySelector("li");
+    Start.update=document.querySelector(".updata");
+    Start.init();
+
+
+
+</script>
+</html>
